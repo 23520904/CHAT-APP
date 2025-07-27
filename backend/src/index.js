@@ -13,26 +13,26 @@ import { app, server } from "./lib/socket.js";
 // Load environment variables
 dotenv.config();
 
-// Get directory name for ES modules (required in Node.js ES modules)
+// Get directory name for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = process.env.PORT || 5000; // Added fallback port
+const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(express.json({ limit: "10mb" })); // Added size limit for security
+app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
-// CORS configuration - more secure and flexible
+// CORS configuration
 const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
-      ? process.env.FRONTEND_URL // Set this in your .env file
+      ? process.env.FRONTEND_URL
       : "http://localhost:5173",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 200, // For legacy browser support
+  optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));
@@ -57,13 +57,13 @@ if (process.env.NODE_ENV === "production") {
   // Serve static files
   app.use(
     express.static(frontendPath, {
-      maxAge: "1d", // Cache static files for 1 day
+      maxAge: "1d",
       etag: true,
     })
   );
 
-  // Handle SPA routing - serve index.html for all non-API routes
-  app.get("*", (req, res) => {
+  // ✅ FIXED: Handle SPA routing with named wildcard parameter
+  app.get("/{*path}", (req, res) => {
     // Don't serve index.html for API routes
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ error: "API endpoint not found" });
@@ -82,7 +82,6 @@ if (process.env.NODE_ENV === "production") {
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
 
-  // Don't leak error details in production
   const errorMessage =
     process.env.NODE_ENV === "production"
       ? "Internal server error"
@@ -94,8 +93,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler for unmatched routes
-app.use((req, res) => {
+// ✅ FIXED: 404 handler with named wildcard
+app.use("/{*notFound}", (req, res) => {
   res.status(404).json({
     error: "Route not found",
     path: req.path,
@@ -116,14 +115,12 @@ const gracefulShutdown = () => {
     process.exit(0);
   });
 
-  // Force close after 10 seconds
   setTimeout(() => {
     console.error("Forcing server shutdown");
     process.exit(1);
   }, 10000);
 };
 
-// Handle shutdown signals
 process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
 
@@ -141,13 +138,11 @@ server.listen(PORT, async () => {
   }
 });
 
-// Handle unhandled promise rejections
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
   gracefulShutdown();
 });
 
-// Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
   gracefulShutdown();
